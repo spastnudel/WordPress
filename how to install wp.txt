@@ -1,0 +1,382 @@
+############################################
+#####
+### 
+FULL WORDPRESS INSTALL CONFIGURATION ###
+###
+
+###
+### apache2 + mysql + wp + postfix       ###
+###
+###
+############################################
+
+###
+
+Done by Josh Folgado and Tiago Peres - 28 March 2016 ###
+
+
+
+
+http://www.tecmint.com/install-wordpress-using-apache-in-debian-ubuntu-linux-mint/
+
+
+
+http://www.liberiangeek.net/2015/11/how-to-easily-install-wordpress-on-ubuntu-15-10/
+
+
+
+######################## START #############
+
+### 
+
+CONFIGURE HOSTS FILE
+
+
+
+sudo nano /etc/hosts
+192.168.1.7	jubuntu.lan
+192.168.1.11 jubuntu2.lan
+
+
+
+# Server jubuntu.lan is used as an example, replace with applicable server/domain, i.e. macfaisca.com.
+
+
+
+# IP address 192.168.1.17 is used as an example, replace with applicable IP.
+
+
+
+### INSTALL APACHE (web server)
+
+
+
+sudo apt-get install apache2 apache2-utils
+
+
+
+sudo cp /etc/apache2/apache2.conf ~
+
+sudo nano /etc/apache2/apache2.conf
+
+
+# Once in nano, scroll to the end of the file, switch to Insert mode,
+ and add the following line (note that there is a space between the final
+ “p” of “php” and the period before “html”):
+
+AddType application/x-httpd-php .html
+
+
+
+sudo /etc/init.d/apache2 restart
+
+
+
+### INSTALL PHP AND NEEDED PHP LIBRARIES
+
+
+
+sudo apt-get install php5 libapache2-mod-php5 php5-mysql php5-curl php5-gd php5-intl php-pear php5-imagick php5-imap php5-mcrypt php5-memcache php5-ming php5-ps php5-pspell php5-recode php5-sqlite php5-tidy php5-xmlrpc php5-xsl libssh2-php
+
+
+
+# MODIFY PHP.INI
+(in nano its Ctrl+W to search)
+
+
+
+sudo nano /etc/php5/apache2/php.ini
+
+upload_max_filesize = 64M
+max_execution_time = 120
+memory_limit = 256M
+post_max_size = 64M
+cgi.force_redirect = 1
+cgi.fix_pathinfo = 1
+fastcgi.impersonate = 0
+fastcgi.logging = 0
+file_uploads = On
+
+
+
+
+
+### INSTALL MYSQL SERVER
+
+
+
+sudo apt-get install mysql-client mysql-server 
+
+
+
+
+### INSTALL PHPMYADMIN
+
+
+
+sudo apt-get install phpmyadmin
+
+
+sudo cp /etc/phpmyadmin/apache.conf /etc/apache2/conf-available/ && sudo mv /etc/apache2/conf-available/apache.conf /etc/apache2/conf-available/phpmyadmin.conf
+
+
+
+sudo a2enconf phpmyadmin
+
+sudo service apache2 restart && sudo service apache2 reload && sudo service apache2 restart
+
+
+
+### LOGIN TO PHPMYADMIN
+
+http://192.168.1.11/phpmy
+
+admin
+
+
+root
+
+123456
+
+vwpuser
+123456
+
+
+
+# Once in phpmyadmin do:
+
+~Create new database~, NAME: wordpress
+
+Open database
+ (it should have it opened when you created the new database)
+
+
+On top-right of screen select ~Privileges~ tab.
+
+On ~Privileges~ select ~Add user~ 
+(bottom left)
+
+User name:
+wpuser
+
+Host:
+%
+
+Password:
+Save password for later.
+
+
+Scroll down to ~Global Privileges~ and ~Check All~. All the checkboxes would have been selected, 
+new user has all the needed privileges.
+
+Click the ~Go~ button, bottom right of screen.
+
+...
+ go back to terminal/putty screen ...
+
+
+
+# SECURE MYSQL SERVER
+
+
+
+sudo mysql_secure_installation
+
+
+
+- Remove anonymous users? [Y/n] y
+- Disallow root login remotely? [Y/n] y
+
+- Remove test database and access to it? [Y/n] y
+
+- Reload privilege tables now? [Y/n] y
+
+
+
+# FINALISE APACHE INSTALL
+
+
+
+sudo a2enmod rewrite
+
+
+
+sudo service apache2 restart
+
+
+
+### INSTALL WORDPRESS
+
+
+
+sudo -s
+cd /tmp
+sudo wget http://wordpress.org/latest.tar.gz
+
+
+
+sudo tar -xzvf latest.tar.gz && sudo rm /var/www/html/index.html
+
+sudo mv wordpress/* /var/www/html/ && sudo cp /var/www/html/wp-config-sample.php /var/www/html/wp-config.php
+
+sudo nano /var/www/html/wp-config.php
+
+# here we need to enter host, database and password
+
+
+# add next line at end of wp-config.php
+define('FS_METHOD', 'direct');
+
+
+sudo touch /etc/apache2/sites-available/wordpress.conf
+sudo ln -s /etc/apache2/sites-available/wordpress.conf /etc/apache2/sites-enabled/wordpress.conf
+
+sudo nano /etc/apache2/sites-available/wordpress.conf
+
+
+
+# MODIFY WORDPRESS.CONF
+
+<VirtualHost *:80>
+	ServerAdmin webmaster@virtualbox
+	DocumentRoot /var/www/html/
+	ServerName virtualbox
+	<Directory /var/www/html/>
+		Options FollowSymLinks
+		AllowOverride All
+		Order allow,deny
+		allow from all
+	</Directory>
+</VirtualHost>
+
+sudo service apache2 restart
+
+# FINALISE WP INSTALL
+
+sudo chown -R www-data:www-data /var/www/html/ && sudo chmod -R 755 /var/www/html/
+ 
+
+# First check if folder "upgrade" exists in /var/www/html/wp-content/
+# If it doesnt exist then do next command on terminal
+# sudo mkdir /var/www/html/wp-content/upgrade
+
+# Then do next command
+sudo chmod -R 777 /var/www/html/wp-content/upgrade
+
+Open new WP install:
+http://192.168.1.11
+
+Login:
+http://192.168.1.11/wp-login.php
+
+
+
+### INSTALL POSTFIX (SMTP)
+
+
+
+sudo apt-get install postfix mailutils libsasl2-2 ca-certificates libsasl2-modules
+
+
+
+sudo nano /etc/postfix/main.cf
+
+# add following lines:
+
+
+
+# For Gmail as an example
+
+relayhost = [smtp.gmail.com]
+
+:587
+smtp_sasl_auth_enable = yes
+smtp_sasl_password_maps = hash:/etc/postfix/sasl_passwd
+smtp_sasl_security_options = noanonymous
+smtp_tls_CAfile =
+ /etc/postfix/cacert.pem
+smtp_use_tls = yes
+
+# SendGrid
+smtp_sasl_auth_enable = yes 
+smtp_sasl_password_maps = static:josh-folgado-smtp:sfdj87FdSedE77aa 
+smtp_sasl_security_options = noanonymous 
+smtp_tls_security_level = encrypt
+header_size_limit = 4096000
+relayhost = [smtp.sendgrid.net]:587
+
+
+
+# Now create password for postfix
+
+
+sudo nano /etc/postfix/sasl_passwd
+
+add line fpr gmail:
+[smtp.gmail.com]:587    USERNAME@gmail.com:PASSWORD
+
+add line fpr sendgrid:
+[smtp.sendgrid.net]:587    josh-folgado-smtp:sfdj87FdSedE77aa
+
+
+
+exit and save
+
+
+
+sudo chmod 400 /etc/postfix/sasl_passwd && sudo postmap /etc/postfix/sasl_passwd && sudo cat /etc/ssl/certs/Thawte_Premium_Server_CA.pem | 
+sudo tee -a /etc/postfix/cacert.pem
+
+
+sudo /etc/init.d/postfix reload
+
+
+
+# Testing new Postfix and SMTP
+echo "Test mail from Mane postfix" | 
+mail -s "Test gjhgjgj Postfix" me@joshfolgado.com
+
+
+
+### MUST INSTALL WP SMTP 
+(for WP to handle sending emails)
+
+
+Through WP, install Easy WP SMTP 
+(by wpecommerce)
+
+Install and configure to:
+
+From:
+webmaster@wpgeekdevs.com
+
+smtp.wpgeekdevs.com
+port 25
+
+
+
+
+### INSTALL MULTISITES
+
+
+
+sudo nano /var/www/html/wp-config.php
+
+define('WP_ALLOW_MULTISITE', true);
+
+
+# above where it says /* That’s all, stop editing! Happy blogging. */:
+
+exit and save
+
+
+
+sudo service apache2 restart
+
+
+
+### that should be it, we will add more detail when found 
+
+###
+
+######################## END #############
